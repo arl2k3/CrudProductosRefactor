@@ -1,0 +1,430 @@
+{
+  "info": {
+    "name": "Productos API",
+    "description": "CRUD técnico de productos. El precio debe ser mayor que cero. El stock no puede ser negativo. La baja es lógica. Ejecutar la carpeta Flujo con el Collection Runner, en orden, contra http://localhost:8080.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "productoId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Flujo",
+      "item": [
+        {
+          "name": "Registrar producto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('crea el producto con precio mayor que cero', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.precio).to.be.above(0);",
+                  "    pm.expect(body.estadoInventario).to.eql('DISPONIBLE');",
+                  "    pm.collectionVariables.set('productoId', body.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Teclado mecanico\",\n  \"precio\": 120.00,\n  \"stock\": 8\n}"
+            },
+            "url": "{{baseUrl}}/api/productos",
+            "description": "Alta de un producto con inventario disponible. Guarda productoId para el resto del flujo."
+          }
+        },
+        {
+          "name": "Registrar producto agotado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('stock cero queda agotado', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "    pm.expect(pm.response.json().estadoInventario).to.eql('AGOTADO');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Mouse agotado\",\n  \"precio\": 15.50,\n  \"stock\": 0\n}"
+            },
+            "url": "{{baseUrl}}/api/productos",
+            "description": "Stock cero es válido y el estado de inventario es AGOTADO."
+          }
+        },
+        {
+          "name": "Registrar con precio cero",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('rechaza precio que no es mayor que cero', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "    pm.expect(pm.response.json().mensajes.join(' ')).to.include('mayor que cero');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Cable\",\n  \"precio\": 0,\n  \"stock\": 4\n}"
+            },
+            "url": "{{baseUrl}}/api/productos"
+          }
+        },
+        {
+          "name": "Registrar con precio negativo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('rechaza precio negativo', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "    pm.expect(pm.response.json().mensajes.join(' ')).to.include('mayor que cero');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Cable\",\n  \"precio\": -1,\n  \"stock\": 4\n}"
+            },
+            "url": "{{baseUrl}}/api/productos"
+          }
+        },
+        {
+          "name": "Registrar con stock negativo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('rechaza stock negativo', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "    pm.expect(pm.response.json().mensajes.join(' ')).to.include('stock');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Cable\",\n  \"precio\": 10.00,\n  \"stock\": -1\n}"
+            },
+            "url": "{{baseUrl}}/api/productos"
+          }
+        },
+        {
+          "name": "Listar catálogo completo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('devuelve el catálogo sin paginar', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.paginado).to.eql(false);",
+                  "    pm.expect(body.productos.length).to.be.at.least(1);",
+                  "    pm.expect(body).to.not.have.property('page');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/productos"
+          }
+        },
+        {
+          "name": "Listar catálogo paginado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('pagina el catálogo', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.paginado).to.eql(true);",
+                  "    pm.expect(body.page).to.eql(0);",
+                  "    pm.expect(body.size).to.eql(1);",
+                  "    pm.expect(body.productos.length).to.eql(1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/productos?page=0&size=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "productos"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "1" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Consultar catálogo por nombre",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('filtra por nombre', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.paginado).to.eql(false);",
+                  "    pm.expect(body.productos.length).to.be.at.least(1);",
+                  "    body.productos.forEach(function (producto) {",
+                  "        pm.expect(producto.nombre.toLowerCase()).to.include('teclado');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/productos?nombre=teclado",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "productos"],
+              "query": [
+                { "key": "nombre", "value": "teclado" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Obtener producto por id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('obtiene el producto activo', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.id).to.eql(pm.collectionVariables.get('productoId'));",
+                  "    pm.expect(body.precio).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/productos/{{productoId}}"
+          }
+        },
+        {
+          "name": "Actualizar precio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('solo cambia el precio', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.precio).to.eql(50);",
+                  "    pm.expect(body.nombre).to.eql('Teclado mecanico');",
+                  "    pm.expect(body.stock).to.eql(8);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"precio\": 50.00\n}"
+            },
+            "url": "{{baseUrl}}/api/productos/{{productoId}}/precio",
+            "description": "Único recurso de actualización. No modifica nombre ni stock. El precio debe ser mayor que cero."
+          }
+        },
+        {
+          "name": "Actualizar precio en cero",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('rechaza precio que no es mayor que cero', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "    pm.expect(pm.response.json().mensajes.join(' ')).to.include('mayor que cero');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"precio\": 0\n}"
+            },
+            "url": "{{baseUrl}}/api/productos/{{productoId}}/precio"
+          }
+        },
+        {
+          "name": "Eliminar producto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('baja lógica', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/productos/{{productoId}}"
+          }
+        },
+        {
+          "name": "Consultar producto eliminado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('el producto dado de baja no se consulta', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/productos/{{productoId}}"
+          }
+        },
+        {
+          "name": "Eliminar producto ya dado de baja",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('un segundo delete responde 404', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/productos/{{productoId}}"
+          }
+        }
+      ]
+    }
+  ]
+}

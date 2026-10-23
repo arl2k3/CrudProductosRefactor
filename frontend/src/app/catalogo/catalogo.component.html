@@ -1,0 +1,181 @@
+<div class="shell">
+  <header class="cabecera">
+    <div>
+      <p class="eyebrow">Inventario</p>
+      <h1>Catálogo de productos</h1>
+      <p class="lede">Registra, consulta, cambia el precio y da de baja. El precio tiene que ser mayor que cero.</p>
+    </div>
+    <p class="endpoint">{{ api }}</p>
+  </header>
+
+  <div class="layout">
+    <section class="panel" aria-labelledby="titulo-alta">
+      <h2 id="titulo-alta">Registrar producto</h2>
+      <form class="alta" [formGroup]="alta" (ngSubmit)="registrar()" novalidate>
+        <label>
+          Nombre
+          <input type="text" formControlName="nombre" maxlength="255" autocomplete="off">
+        </label>
+        @if (mostrarError('nombre', 'obligatorio')) {
+          <small>El nombre es obligatorio.</small>
+        }
+        @if (mostrarError('nombre', 'maxlength')) {
+          <small>El nombre admite como máximo 255 caracteres.</small>
+        }
+
+        <label>
+          Precio
+          <input type="number" formControlName="precio" min="0.01" step="0.01" placeholder="0.00">
+        </label>
+        <small class="pista">Mayor que cero.</small>
+        @if (mostrarError('precio', 'obligatorio')) {
+          <small>El precio es obligatorio.</small>
+        }
+        @if (mostrarError('precio', 'mayorQueCero')) {
+          <small>El precio debe ser mayor que cero.</small>
+        }
+
+        <label>
+          Stock
+          <input type="number" formControlName="stock" min="0" step="1">
+        </label>
+        <small class="pista">Cero deja el producto agotado.</small>
+        @if (mostrarError('stock', 'obligatorio')) {
+          <small>El stock es obligatorio.</small>
+        }
+        @if (mostrarError('stock', 'stock')) {
+          <small>El stock debe ser un entero mayor o igual que cero.</small>
+        }
+
+        @if (errorAlta(); as mensaje) {
+          <p class="alerta" role="alert">{{ mensaje }}</p>
+        }
+
+        <button type="submit" [disabled]="guardandoAlta()">
+          {{ guardandoAlta() ? 'Guardando…' : 'Registrar' }}
+        </button>
+      </form>
+    </section>
+
+    <section class="panel catalogo" aria-labelledby="titulo-catalogo">
+      <div class="catalogo-cabeza">
+        <h2 id="titulo-catalogo">Catálogo</h2>
+        @if (aviso(); as mensaje) {
+          <p class="aviso" role="status">{{ mensaje }}</p>
+        }
+      </div>
+
+      <form class="herramientas" (ngSubmit)="buscar()">
+        <label class="buscar">
+          Buscar por nombre
+          <input type="search" [formControl]="busqueda" placeholder="Teclado, mouse…" autocomplete="off">
+        </label>
+        <button type="submit">Buscar</button>
+        <button type="button" class="secundario" (click)="limpiarBusqueda()">Limpiar</button>
+        <label class="check">
+          <input type="checkbox" [checked]="paginar()" (change)="alternarPaginacion($event)">
+          Paginar
+        </label>
+        @if (paginar()) {
+          <label class="tamano">
+            Tamaño
+            <select [value]="size()" (change)="cambiarTamano($event)">
+              <option [value]="5">5</option>
+              <option [value]="10">10</option>
+              <option [value]="20">20</option>
+            </select>
+          </label>
+        }
+      </form>
+
+      @if (cargando()) {
+        <p class="estado">Cargando catálogo…</p>
+      } @else if (errorCatalogo()) {
+        <p class="alerta" role="alert">{{ errorCatalogo() }}</p>
+      } @else if (productos().length === 0) {
+        <p class="estado">No hay productos activos con ese criterio.</p>
+      } @else {
+        <div class="tabla-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Stock</th>
+                <th>Estado</th>
+                <th>Precio</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (producto of productos(); track producto.id) {
+                <tr [class.seleccionado]="detalle()?.id === producto.id">
+                  <td>
+                    <button type="button" class="nombre" (click)="ver(producto.id)">{{ producto.nombre }}</button>
+                  </td>
+                  <td>{{ producto.stock }}</td>
+                  <td>
+                    <span class="badge" [class.disponible]="producto.estadoInventario === 'DISPONIBLE'" [class.agotado]="producto.estadoInventario === 'AGOTADO'">
+                      {{ producto.estadoInventario === 'DISPONIBLE' ? 'Disponible' : 'Agotado' }}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="precio">
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        [value]="precioDe(producto)"
+                        (input)="editarPrecio(producto.id, $event)"
+                        [attr.aria-label]="'Nuevo precio de ' + producto.nombre">
+                      <button type="button" (click)="guardarPrecio(producto)" [disabled]="guardandoPrecio() === producto.id">
+                        {{ guardandoPrecio() === producto.id ? '…' : 'Guardar' }}
+                      </button>
+                    </div>
+                    @if (erroresPrecio()[producto.id]; as mensaje) {
+                      <small>{{ mensaje }}</small>
+                    }
+                  </td>
+                  <td>
+                    <button type="button" class="baja" (click)="eliminar(producto)" [disabled]="eliminando() === producto.id">
+                      Dar de baja
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
+      @if (paginar() && !cargando() && !errorCatalogo()) {
+        <div class="paginador">
+          <button type="button" class="secundario" (click)="irPagina(page() - 1)" [disabled]="page() === 0">Anterior</button>
+          <span>Página {{ page() + 1 }} de {{ totalPaginas() || 1 }}</span>
+          <button type="button" class="secundario" (click)="irPagina(page() + 1)" [disabled]="page() + 1 >= totalPaginas()">Siguiente</button>
+          <span class="total">{{ totalElementos() }} productos</span>
+        </div>
+      }
+
+      @if (detalleCargando()) {
+        <p class="estado">Consultando producto…</p>
+      }
+      @if (errorDetalle(); as mensaje) {
+        <p class="alerta" role="alert">{{ mensaje }}</p>
+      }
+      @if (detalle(); as producto) {
+        <article class="ficha">
+          <div class="ficha-cabeza">
+            <h3>{{ producto.nombre }}</h3>
+            <button type="button" class="secundario" (click)="cerrarDetalle()">Cerrar</button>
+          </div>
+          <dl>
+            <div><dt>Id</dt><dd>{{ producto.id }}</dd></div>
+            <div><dt>Precio</dt><dd>{{ formatoPrecio(producto.precio) }}</dd></div>
+            <div><dt>Stock</dt><dd>{{ producto.stock }}</dd></div>
+            <div><dt>Estado</dt><dd>{{ producto.estadoInventario === 'DISPONIBLE' ? 'Disponible' : 'Agotado' }}</dd></div>
+          </dl>
+        </article>
+      }
+    </section>
+  </div>
+</div>
